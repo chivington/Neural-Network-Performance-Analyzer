@@ -1,5 +1,5 @@
 <p align="center">
-  <img width='650' src='https://github.com/chivington/Neural-Network-Performance-Analyzer/blob/master/imgs/mnist.png' alt='MNIST Digits'/>
+  <img width='650' src='https://github.com/chivington/Neural-Network-Performance-Analyzer/blob/main/imgs/mnist.png' alt='MNIST Digits'/>
 </p>
 
 # CuPy GPU-Powered Neural Network Performance Analyzer
@@ -43,6 +43,7 @@ First, clone this repository:
 
 Next, navigate into the directory and download the datasets:
 ```bash
+	cd Neural-Network-Performance-Analyzer
   python mnist-nn.py get_data
 ```
 
