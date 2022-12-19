@@ -28,9 +28,9 @@ Enjoy!
 
 ## Prerequisites
   * Python
-	* NumPy
+  * NumPy
   * CuPy (if you want to use your GPU)
-	* Requests
+  * Requests
   * Matplotlib
 <br/><br/>
 
@@ -43,7 +43,7 @@ First, clone this repository:
 
 Next, navigate into the directory and download the datasets:
 ```bash
-	cd Neural-Network-Performance-Analyzer
+  cd Neural-Network-Performance-Analyzer
   python mnist-nn.py get_data
 ```
 
