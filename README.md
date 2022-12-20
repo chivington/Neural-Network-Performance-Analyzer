@@ -32,7 +32,7 @@ Enjoy!
   * Python
   * NumPy
   * CuPy (if you want to use your GPU)
-  * Requests
+  * Requests (unless you already have the csv files found here: [train](https://pjreddie.com/media/files/mnist_train.csv) & [test](https://pjreddie.com/media/files/mnist_test.csv))
   * Matplotlib
 <br/><br/>
 
