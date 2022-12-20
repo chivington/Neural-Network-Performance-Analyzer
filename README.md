@@ -10,6 +10,8 @@ If you don't have a GPU or don't have CuPy installed on your system, simply chan
 
 Email john@discefasciendo.com with questions.
 
+[Video demo](https://youtube.com/@discefasciendo/video) in my [AI Finance series](https://youtube.com/@discefasciendo/playlist)
+
 Enjoy!
 
 ![Build Status](https://img.shields.io/badge/build-Stable-green.svg)
