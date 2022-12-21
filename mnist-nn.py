@@ -4,23 +4,19 @@ import matplotlib.pyplot as plt
 import time, sys, os, json
 
 
-# #################### DON'T CHANGE ANYTHING ABOVE THIS LINE ####################
-import cupy as cu	# <-- COMMENT THIS LINE!  ...if you don't have CuPy installed
-
-# ----- SELECT MATH ENVIRONMENT
-MATH_ENV = 'numpy'							# To switch between NumPy & CuPy, change this to 'numpy' or 'cupy'
-blas = np if MATH_ENV == 'numpy' else cu	# DON'T CHANGE THIS LINE!!!
+MATH_ENV = 'numpy'
+blas = np
+try:
+	import cupy as cu
+	MATH_ENV = 'cupy'
+	blas = cu
+except Exception as e:
+	print(f" CuPy not found, running neural network on CPU.")
+	print(f" To install CuPy and run network on GPU, visit:\n  https://docs.cupy.dev/en/stable/install.html")
 
 # ----- TURN ON/OFF ALL PRINTING
 # Choose between: 'ALL', 'MODEL_ONLY', 'NO_MODEL', or 'NONE'
-# - ALL: prints info related to model training/testing performance, and data loading/processing, etc.
-# - MODEL_ONLY: prints info related to model training/testing performance only
-# - NO_MODEL: prints info related to data loading/processing, etc. only
-# - NONE: only prints when writing to a file
 PRINTING = 'ALL'
-# #################### DON'T CHANGE ANYTHING BELOW THIS LINE ####################
-
-
 MODEL_PRINTING = True if PRINTING == 'ALL' or PRINTING == 'MODEL_ONLY' else False
 PROGRAM_PRINTING = True if PRINTING == 'ALL' or PRINTING == 'NO_MODEL' else False
 
@@ -50,9 +46,8 @@ def greet(clear=False):
 		"  This neural network uses your GPU to train on the MNIST \n"
 		" dataset and learn to recognize images of hand-written digits. \n\n"
 		"  If you don't have a GPU or don't have CuPy installed on \n"
-		" your system, simply change the MATH_ENV variable to use NumPy \n"
-		" instead. The training will run much slower, but it will \n"
-		" achieve the same results. \n\n"
+		" your system, the program will use NumPy instead. The training \n"
+		" will run much slower, but it will achieve the same results. \n\n"
 		" Email john@discefasciendo.com with questions.\n\n Enjoy! \n\n\n"
 	))
 	if not PROGRAM_PRINTING: print(f' Program printing turned off.')
@@ -76,13 +71,13 @@ def shuffle(X, Y):
 	return X[idxs], Y[idxs]
 
 def load_data():
-	if PROGRAM_PRINTING: print(f' PRE-PROCESSING DATA...\n Loading training & testing datasets...')
+	if PROGRAM_PRINTING: print(f'\n PRE-PROCESSING DATA...\n Loading training & testing datasets...')
 	files = ['mnist_train', 'mnist_test']
 	out = []
 	for file in files:
 		if PROGRAM_PRINTING: sys.stdout.write(f'  - {file}')
 		load_start = time.time()
-		data = np.loadtxt(f'datasets/{file}.csv', delimiter = ',')
+		data = np.loadtxt(f'data/{file}.csv', delimiter = ',')
 		x = normalize(data[:,1:])
 		y = one_hot(data[:,:1], 10)
 		if MATH_ENV == 'cupy':
@@ -121,20 +116,26 @@ def batch_data(X, Y, batch_size, cycles):
 	return train_batches
 
 def download_data():
-	if PROGRAM_PRINTING: print(' Downloading MNIST data...')
-	train_url = 'https://pjreddie.com/media/files/mnist_train.csv'
-	test_url = 'https://pjreddie.com/media/files/mnist_test.csv'
-	for url in [train_url, test_url]:
-		f = url.split('/')[-1]
-		if PROGRAM_PRINTING: sys.stdout.write(f'  - {f}')
-		start = time.time()
-		req = rq.get(url)
-		res = req.text
-		fp = open(f'data/{f}', 'w')
-		fp.write(res)
-		fp.close
-		end = time.time()
-		if PROGRAM_PRINTING: sys.stdout.write(f' ({blas.around(end-start, 2)}s)\n')
+	have_train = os.path.exists('data/mnist_train.csv')
+	have_test = os.path.exists('data/mnist_test.csv')
+	if have_train and have_test:
+		return 'MNIST data already downloaded.'
+	else:
+		if PROGRAM_PRINTING: print(' Downloading MNIST data...')
+		train_url = 'https://pjreddie.com/media/files/mnist_train.csv'
+		test_url = 'https://pjreddie.com/media/files/mnist_test.csv'
+		for url in [train_url, test_url]:
+			f = url.split('/')[-1]
+			if PROGRAM_PRINTING: sys.stdout.write(f'  - {f}')
+			start = time.time()
+			req = rq.get(url)
+			res = req.text
+			fp = open(f'data/{f}', 'w')
+			fp.write(res)
+			fp.close
+			end = time.time()
+			if PROGRAM_PRINTING: sys.stdout.write(f' ({blas.around(end-start, 2)}s)\n')
+		return 'Datasets downloaded...'
 
 # ----- METRICS UTILS
 def plot_lines(models, model_idx, model_acc):
@@ -211,7 +212,7 @@ def save_model_weights(model, metrics, fn='model-weights'):
 	fp.close()
 
 def load_model_weights(filename):
-	if PROGRAM_PRINTING: print(f' Loading previous model weights for: {filename}')
+	if PROGRAM_PRINTING: print(f'\n Loading previous model weights for: {filename}')
 	parse_dims = lambda str: np.array(str[:-2].split('(')[1].split(', '), dtype=int)
 	parse_weights = lambda str: np.array(str[:-1].split(','), dtype=np.float64)
 
@@ -292,6 +293,81 @@ def evaluate_models(datasets, models, record_performance, save_weights, logfile)
 
 	# optionally, save weights of the best performing model
 	if save_weights: save_model_weights(best_model, metrics[best_idx-1], logfile)
+
+	input('\n Press enter to continue...')
+
+
+# ----- USER UTILS
+def define_model_architectures(models):
+	weights = os.listdir('weights')
+	weights.remove('README.txt')
+	updated_models = []
+
+	done = False
+	while not done:
+		dims = []
+		if len(weights) > 0:
+			print(f' Available weights: {weights}\n')
+			load_weights = input(' Load model weights? Type filename (without ".txt") or "no"\n ')
+			if not load_weights == 'no':
+				if f'{load_weights}.txt' in weights:
+					dims = load_model_weights(load_weights)
+				else:
+					print(f' "{load_weights}" not in available weights. Try again... ')
+					time.sleep(1)
+					continue
+			else:
+				dims = input('\n Enter the layer dimensions for the model as a comma-separated list. (e.g.: "256, 64, 32")\n ').split(', ')
+		else:
+			dims = input('\n Enter the layer dimensions for the model as a comma-separated list. (e.g.: "256, 64, 32")\n ').split(', ')
+
+		valid = True
+		for i,d in enumerate(dims):
+			t = f'{type(d)}'
+			if not 'ndarray' in t:
+				try:
+					dims[i] = int(d)
+				except Exception as e:
+					valid = False
+
+		if not valid:
+			print(f' Invalid weight entry. Try again... ')
+			time.sleep(1)
+			continue
+
+		cycles = int(input(' How many cycles should the model train for? '))
+		lr = float(input(' What is the learning rate? '))
+		bs = int(input(' What is the batch size? '))
+		pf = int(input(' How frequently should the model print performance metrics? '))
+
+		updated_models.append({
+			'dims': dims,
+			'cycles': cycles,
+			'lr': lr,
+			'bs': bs,
+			'pf': pf
+		})
+
+		add = True if int(input(' Add another model? (0 = no; 1 = yes) ')) == 1 else False
+		if not add:
+			done = True
+
+	return updated_models
+
+def display_help_menu(msg=''):
+	print(f' Options:')
+	actions = [
+		{'title': 'Download Data', 'desc': 'Download MNIST datasets.'},
+		{'title': 'Load Data', 'desc': 'Load MNIST datasets.'},
+		{'title': 'Define Model Architectures', 'desc': 'Set architecture options.'},
+		{'title': 'View Model Architectures', 'desc': 'View defined architectures.'},
+		{'title': 'Evaluate Models', 'desc': 'Evaluate defined models.'},
+		{'title': 'Quit', 'desc': 'Quit the program.'},
+	]
+	for i,action in enumerate(actions):
+		print(f'  {i+1}: {action["title"]} - {action["desc"]}')
+
+	if not msg == '': print(f'\n {msg}\n')
 
 
 # ----- NEURAL NETWORK CLASSES
@@ -462,36 +538,59 @@ class Softmax(Layer):
 
 
 if __name__ == "__main__":
-	if len(sys.argv) > 1 and sys.argv[1] == 'get_data':
-		download_data()
-		exit()
-	# #################### DON'T CHANGE ANYTHING ABOVE THIS LINE ####################
-	# ----- GREET USER & PROVIDE INFO
-	greet(True)	# pass "True" to clear screen before next run; default = False
+	datasets = None	# SET DATASETS HERE
+	running = True	# SET TO "False" TO QUIT
+	models = []		# DEFINE ARCHITECTURES & HYPERPARAMETERS
 
-	# ----- LOAD DATA
-	datasets = load_data()	# DON'T CHANGE THIS LINE
+	# ----- BEGIN RUNTIME
+	usr_msg = ''
+	while running:
+		# GREET USER & PROVIDE INFO
+		greet(True)
 
-	# ----- SET PERFORMANCE RECORDING OPTIONS
-	logfile = 'test-run-9'		# set path of your performance output file; default = "metrics/performance.txt"
-	record_performance = True	# set "False" if you don't want to save results
-	save_weights = False		# set "False" if you don't want to save weights; "weights/{logfile}-weights.txt"
+		# DISPLAY PROGRAM OPTIONS & CLEAR PREVIOUS USER MSG
+		display_help_menu(usr_msg)
+		usr_msg = ''
 
-	# optionally, load list of previous model weights
-	weights = load_model_weights('test-run-9') if save_weights else False
-
-	# ----- TEST DIFFERENT ARCHITECTURES & HYPERPARAMETERS
-	# Define model architectures & hyperparameters.
-	# - dims: list of comma-separated integers
-	# - cycles: single integer
-	# - lr (learning rate): single float/decimal value; ideally 0.001 - 0.01
-	# - bs (batch size): single integer; larger trains faster, but less accurate; ideally 64 - 128
-	# - pf (print frequency): how frequently should the model print metrics during training?
-	models = [
-		{'dims':[32,16], 'cycles':10, 'lr':0.001, 'bs':64, 'pf':1},
-		{'dims':[64,32], 'cycles':10, 'lr':0.001, 'bs':64, 'pf':1},
-	]
-	# #################### DON'T CHANGE ANYTHING BELOW THIS LINE ####################
-
-
-	evaluate_models(datasets, models, record_performance, save_weights, logfile)
+		# PROMPT USER FOR CHOICE
+		choice = input(f'\n What would you like to do? (Type 1-5 and press enter.)\n ')
+		try:
+			choice = int(choice)
+			if choice in [1,2,3,4,5,6]:
+				if choice == 1:
+					usr_msg = download_data()
+				if choice == 2:
+					have_train = os.path.exists('data/mnist_train.csv')
+					have_test = os.path.exists('data/mnist_test.csv')
+					if have_train and have_test:
+						datasets = load_data()
+						usr_msg = 'Datasets loaded...'
+					else: usr_msg = 'Datasets not downloaded. Download with option #1...'
+				if choice == 3:
+					models = define_model_architectures(models)
+					usr_msg = 'Model architectures updated...'
+				if choice == 4:
+					if len(models) < 1:
+						usr_msg = 'No models specified. Define a model with option #3.'
+					else:
+						print(f'\n Current model architectures.')
+						for i,m in enumerate(models):
+							print(f' - Model {i+1}: {m}')
+						input('\n Press enter to continue.')
+				if choice == 5:
+					if datasets == None:
+						usr_msg = 'Datasets not loaded. Load with option #2...'
+					else:
+						logfile = 'test-run'
+						record_performance = True if int(input('\n Record performance metrics? (0 = no; 1 = yes) ')) == 1 else False
+						save_weights = True if int(input(' Save best model weights? (0 = no; 1 = yes) ')) == 1 else False
+						if record_performance or save_weights:
+							logfile = input(' Type the name of the output files (".txt" extension will be added). This will be used for metrics and/or weights files.\n ')
+						evaluate_models(datasets, models, record_performance, save_weights, logfile)
+				if choice == 6:
+					print('\n Quitting...')
+					running = False
+			else:
+				usr_msg = 'Invalid option. Try again...'
+		except Exception as e:
+			usr_msg = 'Invalid option. Try again...'
