@@ -52,7 +52,7 @@ python mnist-nn.py
 
 For more details, see the [Video Demo](https://youtube.com/@discefasciendo)
 
-Feel free to ask me questions on [GitHub](https://github.com/chivington)
+Feel free to ask me questions on [GitHub](https://github.com/chivington) or at john@discefasciendo.com
 
 <!-- <br/>
 <p align="center">
