@@ -544,12 +544,12 @@ if __name__ == "__main__":
 	running = True	# SET TO "False" TO QUIT
 	models = []		# DEFINE ARCHITECTURES & HYPERPARAMETERS
 
-	# GREET USER & PROVIDE INFO
-	greet(True)
-
 	# ----- BEGIN RUNTIME
 	usr_msg = ''
 	while running:
+		# GREET USER & PROVIDE INFO
+		greet(True)
+
 		# DISPLAY PROGRAM OPTIONS & CLEAR PREVIOUS USER MSG
 		display_help_menu(usr_msg)
 		usr_msg = ''
@@ -578,6 +578,7 @@ if __name__ == "__main__":
 					else:
 						print(f'\n Current model architectures.')
 						for i,m in enumerate(models):
+							m['dims'] = m['dims'] if type(m['dims'][0]) == int else [d.shape[0] for d in m['dims'][1:]]
 							print(f' - Model {i+1}: {m}')
 						input('\n Press enter to continue.')
 				if choice == 5:
