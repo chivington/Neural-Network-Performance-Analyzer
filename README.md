@@ -70,7 +70,7 @@ Feel free to ask me questions on [GitHub](https://github.com/chivington) or at j
 
 
 ## Authors
-* **Johnathan Chivington:** [GitHub](https://github.com/chivington)
+* **Johnathan Chivington:** [GitHub](https://github.com/chivington), [YouTube](https://youtube.com/@discefasciendo)
 
 ## Contributing
 Not currently accepting outside contributors, but feel free to use as you wish.
