@@ -437,7 +437,7 @@ class Net:
 			print_cycle = True if MODEL_PRINTING and (cycle % self.print_freq == 0) else False
 
 			if print_cycle:
-				sys.stdout.write(f'   CYCLE {f"{cycle + 1}/{self.cycles}":<5} >> ')
+				sys.stdout.write(f'   CYCLE {f"{cycle+1 if cycle == 0 else cycle}/{self.cycles}":<5} >> ')
 
 			for b,batch in enumerate(current_batches):
 				if print_cycle: progress(b, batch_count)
@@ -589,7 +589,7 @@ if __name__ == "__main__":
 						record_performance = True if int(input('\n Record performance metrics? (0 = no; 1 = yes) ')) == 1 else False
 						save_weights = True if int(input(' Save best model weights? (0 = no; 1 = yes) ')) == 1 else False
 						if record_performance or save_weights:
-							logfile = input(' Type the name of the output files (".txt" extension will be added). This will be used for metrics and/or weights files.\n ')
+							logfile = input('\n Type the name of the output files (".txt" extension will be added).\n This will be used for metrics and/or weights files.\n\n >>> ')
 						evaluate_models(datasets, models, record_performance, save_weights, logfile)
 				if choice == 6:
 					print('\n Quitting...')
