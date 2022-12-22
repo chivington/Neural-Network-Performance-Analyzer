@@ -38,14 +38,14 @@ Enjoy!
 
 ## Installation
 ```bash
-  git clone https://github.com/chivington/Neural-Network-Performance-Analyzer.git
+git clone https://github.com/chivington/Neural-Network-Performance-Analyzer.git
 ```
 <br/>
 
 ## Usage
 From the program folder, just run:
 ```bash
-	python mnist-nn.py
+python mnist-nn.py
 ```
 
 ...and follow the prompts.
