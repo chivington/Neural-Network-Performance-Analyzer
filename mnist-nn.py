@@ -50,6 +50,8 @@ def greet(clear=False):
 		" will run much slower, but it will achieve the same results. \n\n"
 		" Email john@discefasciendo.com with questions.\n\n Enjoy! \n\n\n"
 	))
+	env = 'CuPy Array Library for GPU-accelerated Computing' if MATH_ENV == 'cupy' else 'NumPy package for scientific computing'
+	if PROGRAM_PRINTING: print(f' Utilizing {env} \n')
 	if not PROGRAM_PRINTING: print(f' Program printing turned off.')
 	if not MODEL_PRINTING: print(f' Model printing turned off.')
 
@@ -216,7 +218,7 @@ def load_model_weights(filename):
 	parse_dims = lambda str: np.array(str[:-2].split('(')[1].split(', '), dtype=int)
 	parse_weights = lambda str: np.array(str[:-1].split(','), dtype=np.float64)
 
-	fp = open(f'weights/{filename}.txt', 'r')
+	fp = open(f'weights/{filename}', 'r')
 	lines = fp.readlines()[3:]
 	current_line = 0
 	dims = []
@@ -233,7 +235,6 @@ def load_model_weights(filename):
 			current_line = current_line + 1
 
 		current_line = current_line + 2
-
 	return weights if MATH_ENV == 'numpy' else [cu.array(w) for w in weights]
 
 
@@ -307,13 +308,14 @@ def define_model_architectures(models):
 	while not done:
 		dims = []
 		if len(weights) > 0:
-			print(f' Available weights: {weights}\n')
-			load_weights = input(' Load model weights? Type filename (without ".txt") or "no"\n ')
-			if not load_weights == 'no':
-				if f'{load_weights}.txt' in weights:
-					dims = load_model_weights(load_weights)
+			prntd = [(f'{i+1}: {f[:-4]}') for i,f in enumerate(weights)]
+			print(f'\n Available weights: {prntd}\n')
+			load_idx = int(input(' Load model weights? Type file number, or type "0" to skip\n '))
+			if not load_idx == 0:
+				if weights[load_idx-1] in weights:
+					dims = load_model_weights(weights[load_idx-1])
 				else:
-					print(f' "{load_weights}" not in available weights. Try again... ')
+					print(f' "{weights[load_idx-1]}" not in available weights. Try again... ')
 					time.sleep(1)
 					continue
 			else:
@@ -367,7 +369,7 @@ def display_help_menu(msg=''):
 	for i,action in enumerate(actions):
 		print(f'  {i+1}: {action["title"]} - {action["desc"]}')
 
-	if not msg == '': print(f'\n {msg}\n')
+	if not msg == '': print(f'\n\n >>> {msg}\n')
 
 
 # ----- NEURAL NETWORK CLASSES
@@ -542,12 +544,12 @@ if __name__ == "__main__":
 	running = True	# SET TO "False" TO QUIT
 	models = []		# DEFINE ARCHITECTURES & HYPERPARAMETERS
 
+	# GREET USER & PROVIDE INFO
+	greet(True)
+
 	# ----- BEGIN RUNTIME
 	usr_msg = ''
 	while running:
-		# GREET USER & PROVIDE INFO
-		greet(True)
-
 		# DISPLAY PROGRAM OPTIONS & CLEAR PREVIOUS USER MSG
 		display_help_menu(usr_msg)
 		usr_msg = ''
@@ -557,6 +559,7 @@ if __name__ == "__main__":
 		try:
 			choice = int(choice)
 			if choice in [1,2,3,4,5,6]:
+				if not choice == 6: clear_screen()
 				if choice == 1:
 					usr_msg = download_data()
 				if choice == 2:
