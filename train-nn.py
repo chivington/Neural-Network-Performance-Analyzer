@@ -198,18 +198,18 @@ def record_performances(metrics, fn='performance'):
 	print(f' Writing results to file: metrics/{fn}.txt')
 	if not os.path.exists(f'metrics/{fn}.txt'):
 		fp = open(f'metrics/{fn}.txt', 'w')
-		fp.write(f'env, dims, cycles, learning_rate, batch_size, total_train_time, avg_cycle_time, training_accuracy, test_accuracy, training_accuracy_delta\n')
+		fp.write(f'env;dims;cycles;learning rate;batch size;total train time;avg cycle time;training accuracy;test accuracy;training accuracy delta\n')
 		fp.close()
 	fp = open(f'metrics/{fn}.txt', 'a')
 	for line in metrics:
-		fp.write(f'{MATH_ENV}, {line[0]}, {line[1]}, {line[2]}, {line[3]}, {line[4]}, {line[5]}, {line[6]}, {line[7]}, {line[8]}\n')
+		fp.write(f'{MATH_ENV};[{",".join(f"{line[0]}".split("[")[1].split("]")[0].split(", "))}];{line[1]};{line[2]};{line[3]};{line[4]};{line[5]};{line[6]};{line[7]};{line[8]}\n')
 	fp.close()
 
 def save_model_weights(model, metrics, fn='model-weights'):
 	print(f' Saving best model weights to file: weights/{fn}.txt')
 	fp = open(f'weights/{fn}.txt', 'w')
-	fp.write(f'env, dims, cycles, learning_rate, batch_size, total_train_time, avg_cycle_time, training_accuracy, test_accuracy, training_accuracy_delta\n')
-	fp.write(f'{MATH_ENV}, {metrics[0]}, {metrics[1]}, {metrics[2]}, {metrics[3]}, {metrics[4]}, {metrics[5]}, {metrics[6]}, {metrics[7]}, {metrics[8]}\n')
+	fp.write(f'env;dims;cycles;learning rate;batch size;total train time;avg cycle time;training accuracy;test accuracy;training accuracy delta\n')
+	fp.write(f'{MATH_ENV};[{",".join(f"{metrics[0]}".split("[")[1].split("]")[0].split(", "))}];{metrics[1]};{metrics[2]};{metrics[3]};{metrics[4]};{metrics[5]};{metrics[6]};{metrics[7]};{metrics[8]}\n')
 	for l,layer in enumerate(model.layers):
 		if layer.type == 'Dense':
 			lidx = 1 if l == 0 else int(l // 2) + 1
@@ -260,18 +260,15 @@ def train_models(datasets, models):
 		lr = model['lr']
 		pf = model['pf']
 
-		# Batch training data preemptively to speed up the etraining process.
-		train_batches = batch_data(train_x, train_y, 64, cycles)
-
 		# train & test model
-		m = Net(train_x, train_y, dims, cycles, lr, pf)
-		costs, accs, times, train_time, avg_time = m.train(train_batches)
-		test_acc, predictions = m.test(test_x, test_y)
+		m = Net(train_x, train_y, test_x, test_y, dims, cycles, lr, pf)
+		costs, accs, times, train_time, avg_time = m.train()
+		test_acc, predictions = m.test()
 
 		# save model parameters & performance
 		if not isinstance(dims[0], int): dims = [d.shape[0] for d in dims[1:]]
 		train_acc_delta = blas.around(accs[-1] - accs[0], 2)
-		metrics.append([dims, cycles, lr, 64, train_time, avg_time, accs[-1], test_acc, train_acc_delta])
+		metrics.append([dims, costs.shape[0], lr, 64, train_time, avg_time, accs[-1], test_acc, train_acc_delta])
 		performance_data.append((test_acc, [
 			{'title': 'Cost', 'data': costs},
 			{'title': 'Accuracy', 'data': accs},
@@ -301,10 +298,12 @@ def evaluate_models(datasets, models):
 			"\n Type the name of the output files ('.txt' extension will be added),"
 			"\n or press enter to accept the default name. This will be used for"
 			"\n metrics and/or weights logfiles."
-			f"\n\n  Default name(s): '{logfile}-metrics.txt' and/or '{logfile}-weights.txt'"
+			f"\n\n Default name(s): '{logfile}-metrics.txt' and/or '{logfile}-weights.txt'"
 		)
-		usr_name = input(f'{lf_msg}\n  >>> ')
+		usr_name = input(f'{lf_msg}\n >>> ')
 		logfile = logfile if usr_name == '' else usr_name
+
+	display_models(models)
 
 	# test models & get metrics/performance data
 	best_idx, best_model, best_preds, best_acc, metrics, performance_data = train_models(datasets, models)
@@ -366,7 +365,7 @@ def define_model_architectures(models):
 
 		cycles = int(input('\n How many cycles should the model train for?\n >>> '))
 		lr = float(input('\n What is the learning rate? (Ideally between 0.001 - 0.01)\n >>> '))
-		pf = round(cycles * 0.1/10)*10
+		pf = round(cycles * 0.05/10)*10
 		pf = 1 if pf == 0 else pf
 		updated_models.append({ 'dims': dims, 'cycles': cycles, 'lr': lr, 'pf': pf })
 
@@ -402,14 +401,17 @@ def display_models(models):
 
 # ----- NEURAL NETWORK CLASSES
 class Net:
-	def __init__(self, X, Y, layers=[256,128], cycles=3, lr=0.001, print_freq=10):
+	def __init__(self, X, Y, x, y, layers=[256,128], cycles=3, lr=0.001, print_freq=10, batch_size=64):
 		if MODEL_PRINTING: print(f'\n Initializing network... (cycles={cycles}, learning rate={lr})')
-		self.input = X
-		self.labels = Y
+		self.train_x = X
+		self.train_y = Y
+		self.test_x = x
+		self.test_y = y
 		self.layers = self.init_layers(layers)
 		self.cycles = cycles
 		self.lr = lr
 		self.print_freq = print_freq
+		self.batch_size = batch_size
 
 	def init_layers(self, layers):
 		init = []
@@ -422,7 +424,7 @@ class Net:
 				if MODEL_PRINTING:
 					print(f'  Layer {l+1} Dimensions: ({layer.shape[0]} x {layer.shape[1]})')
 		else:
-			n = self.input.shape[1]
+			n = self.train_x.shape[1]
 			for l in range(num_layers + 1):
 				if l < num_layers:
 					layer = layers[l]
@@ -450,22 +452,26 @@ class Net:
 		for layer in list(reversed(self.layers)):
 			grad = layer.backward(grad, self.lr)
 
-	def train(self, batches):
+	def train(self):
 		if MODEL_PRINTING: print(f'\n TRAINING...')
-		m, n = self.input.shape
+		m, n = self.train_x.shape
 		costs, accs, times = blas.array([]), blas.array([]), blas.array([])
+
+		# Batch training data preemptively to speed up the etraining process.
+		batches = batch_data(self.train_x, self.train_y, self.batch_size, self.cycles)
 		batch_count = len(batches[0])
 		batch_size = batches[0][0][0].shape[0]
+
+		test_acc = 0.0
 
 		train_start = time.time()
 		for cycle in range(self.cycles):
 			current_batches = batches[cycle]
 			cycle_start = time.time()
 			cost, acc = 0, 0
-			print_cycle = True if MODEL_PRINTING and ((cycle % self.print_freq == 0) or (cycle == self.cycles-1)) else False
+			print_cycle = True if MODEL_PRINTING and ((cycle==0) or ((cycle+1) % self.print_freq == 0) or (cycle == self.cycles-1)) else False
 
-			if print_cycle:
-				sys.stdout.write(f'   CYCLE {f"{cycle+1 if cycle == 0 else cycle}/{self.cycles}":<5} >> ')
+			if print_cycle: sys.stdout.write(f' {f" {cycle+1}/{self.cycles} >> ":>12}')
 
 			for b,batch in enumerate(current_batches):
 				if print_cycle: progress(b, batch_count)
@@ -483,24 +489,26 @@ class Net:
 			accs = blas.append(accs, (acc*100 / batch_count))
 			times = blas.append(times, (cycle_end - cycle_start))
 			if print_cycle:
-				print(f'Duration: {f"{blas.around(times[-1], 2)}s":<5}', f'/ Accuracy: {blas.around(accs[-1], 2)}%   ')
+				print(f'{f"Duration: {blas.around(times[-1], 2)}s":<15} / {f"Accuracy: {blas.around(accs[-1], 5)}%"}')
+
 		train_end = time.time()
 		train_time = blas.around(train_end - train_start, 2)
 		train_mins = int((train_time) // 60)
 		train_secs = int((train_time) - (train_mins * 60))
 		avg_time = blas.around(blas.average(times), 2)
 		times = blas.around(times, 2)
-		accs = blas.around(accs, 2)
-		costs = blas.around(costs, 4)
+		accs = blas.around(accs, 5)
+		costs = blas.around(costs, 5)
 		if MODEL_PRINTING:
 			print(f'\n TOTAL TRAINING DURATION:\t {train_mins}m : {train_secs}s')
 			print(f' AVG. TRAINING CYCLE DURATION:\t {avg_time}s')
 		return costs, accs, times, train_time, avg_time
 
-	def test(self, test_x, test_y):
+	def test(self):
 		if MODEL_PRINTING: print(f'\n TESTING...')
-		output = self.forward(test_x)
-		acc = blas.around(100 * blas.count_nonzero(blas.argmax(output, axis=1) == blas.argmax(test_y, axis=1)) / test_x.shape[0], 2)
+		x, y = self.test_x, self.test_y
+		output = self.forward(x)
+		acc = blas.around(100 * blas.count_nonzero(blas.argmax(output, axis=1) == blas.argmax(y, axis=1)) / x.shape[0], 2)
 		if MODEL_PRINTING: print(f'   TEST ACCURACY: {acc}%')
 		return acc, output
 
@@ -599,4 +607,6 @@ if __name__ == "__main__":
 			else:
 				usr_msg = 'Invalid option. Please select a number 1-5 and press enter...'
 		except Exception as e:
-			usr_msg = 'Unable to understand selection. Please type a number 1-5 and press enter...'
+			print(f' ERROR >>> {e}')
+			time.sleep(5)
+			usr_msg = f'Unable to understand selection. Please type a number 1-5 and press enter...\n {e}'
