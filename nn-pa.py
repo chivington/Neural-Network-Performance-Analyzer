@@ -5,43 +5,22 @@ import time, sys, os, json
 from datetime import datetime
 
 
-MATH_ENV = 'numpy'
-blas = np
+MATH_ENV, blas = 'numpy', np
 try:
 	import cupy as cu
-	MATH_ENV = 'cupy'
-	blas = cu
+	MATH_ENV, blas = 'cupy', cu
 except Exception as e:
-	print(f" CuPy not found, running neural network on CPU.")
-	print(f" To install CuPy and run network on GPU, visit:\n  https://docs.cupy.dev/en/stable/install.html")
+	print(f" CuPy not found, running neural network on CPU.\n To install CuPy, visit:\n  https://docs.cupy.dev/en/stable/install.html")
 
-# ----- TURN ON/OFF ALL PRINTING
-# Choose between: 'ALL', 'MODEL_ONLY', 'NO_MODEL', or 'NONE'
-PRINTING = 'ALL'
-MODEL_PRINTING = True if PRINTING == 'ALL' or PRINTING == 'MODEL_ONLY' else False
-PROGRAM_PRINTING = True if PRINTING == 'ALL' or PRINTING == 'NO_MODEL' else False
 
 # ----- SEED RNG
 blas.random.seed(4)
 
 
 # ----- FORMATTING UTILS
-def clear_screen():
-	if os.name == 'nt': os.system('cls')
-	else: os.system('clear')
-
-def progress(i, total):
-	str = f'({round(i/total * 100, 2)}%)   '
-	n = len(str)
-	for j in range(n): sys.stdout.write(f' ')
-	for k in range(n): sys.stdout.write(f'\b')
-	sys.stdout.write(f'{str}')
-	for k in range(n): sys.stdout.write(f'\b')
-	sys.stdout.flush()
-
 def greet(clear=False):
-	if clear: clear_screen()
-	if PROGRAM_PRINTING: print((
+	if clear: os.system('cls' if os.name=='nt' else 'cls')
+	print((
 		"\n CuPy GPU-Powered MNIST Neural Network \n"
 		" ------------------------------------- \n"
 		"  This neural network uses your GPU to train on the MNIST \n"
@@ -52,9 +31,7 @@ def greet(clear=False):
 		" Email john@discefasciendo.com with questions.\n\n Enjoy! \n\n\n"
 	))
 	env = 'CuPy Array Library for GPU-accelerated Computing' if MATH_ENV == 'cupy' else 'NumPy package for scientific computing'
-	if PROGRAM_PRINTING: print(f' Utilizing {env} \n')
-	if not PROGRAM_PRINTING: print(f' Program printing turned off.')
-	if not MODEL_PRINTING: print(f' Model printing turned off.')
+	print(f' Utilizing {env} \n')
 
 
 # ----- DATA UTILS
@@ -77,11 +54,11 @@ def load_data():
 	have_train = os.path.exists('data/mnist_train.csv')
 	have_test = os.path.exists('data/mnist_test.csv')
 	if have_train and have_test:
-		if PROGRAM_PRINTING: print(f'\n Loading training & testing datasets...')
+		print(f'\n Loading training & testing datasets...')
 		files = ['mnist_train', 'mnist_test']
 		out = []
 		for file in files:
-			if PROGRAM_PRINTING: sys.stdout.write(f'  - {file}')
+			sys.stdout.write(f'  - {file}')
 			load_start = time.time()
 			data = np.loadtxt(f'data/{file}.csv', delimiter = ',')
 			x = normalize(data[:,1:])
@@ -90,24 +67,20 @@ def load_data():
 				x, y = cu.array(x), cu.array(y)
 			load_end = time.time()
 			out.append((x, y))
-			if PROGRAM_PRINTING: print(f' ({round(load_end - load_start, 2)}s)')
-		if PROGRAM_PRINTING: print('')
+			print(f' ({round(load_end - load_start, 2)}s)')
+		print('')
 		datasets = [out[0][0], out[0][1], out[1][0], out[1][1]]
 		return datasets, 'Datasets loaded...'
 	else:
 		return None, 'Datasets not downloaded. Download with option #1...'
 
 def batch_data(X, Y, batch_size, cycles):
-	if PROGRAM_PRINTING: sys.stdout.write(f' Batching training dataset... ')
+	sys.stdout.write(f' Batching training dataset... ')
 	batching_start = time.time()
 	train_batches = []
 	for e in range(cycles):
-		if PROGRAM_PRINTING: progress(e, cycles)
-		shuffled_X, shuffled_Y = shuffle(X, Y)
-
 		m = X.shape[0]
 		num_batches = m // batch_size
-
 		batches = []
 		for batch in range(num_batches - 1):
 			start = batch * batch_size
@@ -115,13 +88,11 @@ def batch_data(X, Y, batch_size, cycles):
 			x = X[start:end]
 			y = Y[start:end]
 			batches.append((x, y))
-
 		last_start = num_batches * batch_size
 		batches.append((X[last_start:], Y[last_start:]))
-
 		train_batches.append(batches)
 	batching_end = time.time()
-	if PROGRAM_PRINTING: print(f'({blas.around(batching_end - batching_start, 2)}s)    ')
+	print(f'({blas.around(batching_end - batching_start, 2)}s)    ')
 	return train_batches
 
 def download_data(datasets):
@@ -130,12 +101,12 @@ def download_data(datasets):
 	if have_train and have_test:
 		return datasets, 'MNIST data already downloaded.'
 	else:
-		if PROGRAM_PRINTING: print(' Downloading MNIST data...')
+		print(' Downloading MNIST data...')
 		train_url = 'https://pjreddie.com/media/files/mnist_train.csv'
 		test_url = 'https://pjreddie.com/media/files/mnist_test.csv'
 		for url in [train_url, test_url]:
 			f = url.split('/')[-1]
-			if PROGRAM_PRINTING: sys.stdout.write(f'  - {f}')
+			sys.stdout.write(f'  - {f}')
 			start = time.time()
 			req = rq.get(url)
 			res = req.text
@@ -143,7 +114,7 @@ def download_data(datasets):
 			fp.write(res)
 			fp.close
 			end = time.time()
-			if PROGRAM_PRINTING: sys.stdout.write(f' ({blas.around(end-start, 2)}s)\n')
+			sys.stdout.write(f' ({blas.around(end-start, 2)}s)\n')
 		return load_data()
 
 # ----- METRICS UTILS
@@ -184,7 +155,7 @@ def show_predictions(test_imgs, predictions, model_idx, model_acc):
 	rows = int(blas.sqrt(pred_count) // 1)
 	cols = rows if rows**2 == pred_count else (rows + 1)
 	fig, axs = plt.subplots(rows, cols)
-	plt.suptitle(f' Best MNIST Model Predictions\n (Model #{model_idx} - Acc. {model_acc}%)', fontsize=16, fontweight='bold')
+	plt.suptitle(f' Best MNIST Model Predictions\n (Model: {model_idx} - Acc. {model_acc}%)', fontsize=16, fontweight='bold')
 	for row in range(rows):
 		for col in range(cols):
 			i = row * rows + col
@@ -221,7 +192,7 @@ def save_model_weights(model, metrics, fn='model-weights'):
 	fp.close()
 
 def load_model_weights(filename):
-	if PROGRAM_PRINTING: print(f'\n Loading previous model weights for: {filename}')
+	print(f'\n Loading previous model weights for: {filename}')
 	parse_dims = lambda str: np.array(str[:-2].split('(')[1].split(', '), dtype=int)
 	parse_weights = lambda str: np.array(str[:-1].split(','), dtype=np.float64)
 
@@ -252,7 +223,7 @@ def train_models(datasets, models):
 	best_idx, best_acc, best_preds, best_model = 0, 0.0, None, None
 
 	for i,model in enumerate(models):
-		if PROGRAM_PRINTING: print(f'\n\n TESTING MODEL {i+1}...')
+		print(f'\n\n TESTING MODEL {i+1}...')
 
 		# get model hyperparameters
 		dims = model['dims']
@@ -262,12 +233,11 @@ def train_models(datasets, models):
 
 		# train & test model
 		m = Net(train_x, train_y, test_x, test_y, dims, cycles, lr, pf)
-		costs, accs, times, train_time, avg_time = m.train()
+		costs, accs, times, train_time, avg_time, train_acc_delta = m.train()
 		test_acc, predictions = m.test()
 
 		# save model parameters & performance
 		if not isinstance(dims[0], int): dims = [d.shape[0] for d in dims[1:]]
-		train_acc_delta = blas.around(accs[-1] - accs[0], 2)
 		metrics.append([dims, costs.shape[0], lr, 64, train_time, avg_time, accs[-1], test_acc, train_acc_delta])
 		performance_data.append((test_acc, [
 			{'title': 'Cost', 'data': costs},
@@ -279,7 +249,7 @@ def train_models(datasets, models):
 			best_model = m
 			best_acc = test_acc
 			best_preds = predictions
-		if PROGRAM_PRINTING: print('')
+		print('')
 
 	return best_idx+1, best_model, best_preds, best_acc, metrics, performance_data
 
@@ -303,26 +273,49 @@ def evaluate_models(datasets, models):
 		usr_name = input(f'{lf_msg}\n >>> ')
 		logfile = logfile if usr_name == '' else usr_name
 
-	display_models(models)
+	display_models(models, False)
 
 	# test models & get metrics/performance data
 	best_idx, best_model, best_preds, best_acc, metrics, performance_data = train_models(datasets, models)
 
 	# show predictions of best model
-	show_predictions(datasets[2], best_preds, best_idx, best_acc)
+	show_predictions(datasets[2], best_preds, f'#{best_idx}', best_acc)
 
 	# plot model performance & write to file
 	plot_lines(performance_data, best_idx, best_acc)
 
 	# optionally, save performance metrics of all models tested
-	if record_performance: record_performances(metrics, f'{logfile}-metrics')
+	mlf = f'{logfile}-metrics' if f'{dt}' == logfile else logfile
+	if record_performance: record_performances(metrics, mlf)
 
 	# optionally, save weights of the best performing model
-	if save_weights: save_model_weights(best_model, metrics[best_idx-1], f'{logfile}-weights')
+	wlf = f'{logfile}-weights' if f'{dt}' == logfile else logfile
+	if save_weights: save_model_weights(best_model, metrics[best_idx-1], wlf)
 
 	input('\n Press enter to continue...')
 	return 'Performance metrics recorded.' if record_performance or save_weights else 'Models evaluated.'
 
+def test_models(datasets):
+	train_x, train_y, test_x, test_y = datasets
+	weights = os.listdir('weights')
+	weights.remove('README.txt')
+	if len(weights) == 0:
+		return 'No weights to load.'
+	else:
+		wts = [(f'{i+1}: {w[:-4]}') for i,w in enumerate(weights)]
+		print(f'\n Available weights: {wts}\n')
+		try:
+			idx = int(input(' Type the number of the weight file you want to test.\n '))
+			if 1 <= idx <= (len(weights)+1):
+				dims = load_model_weights(weights[idx-1])
+				m = Net(train_x, train_y, test_x, test_y, dims, 1, 0.005, 10)
+				test_acc, predictions = m.test()
+				show_predictions(test_x, predictions, weights[idx-1], test_acc)
+				return f'Test Accuracy: {test_acc}%'
+			else:
+				return 'Invalid weight selection. Please try again.'
+		except Exception as e:
+			return f'Invalid weight selection. Please try again.\n >>> {e}'
 
 # ----- USER UTILS
 def define_model_architectures(models):
@@ -348,7 +341,7 @@ def define_model_architectures(models):
 					print(f' "#{idx-1}" not in available weights. Try again... ')
 					time.sleep(1)
 			else: dims = input(dims_input).split(',')
-		else: dims = input(f'\n No weights to load. {dims_input[3:]}').split(',')
+		else: dims = input(f'\n No weights to load. {dims_input[2:]}').split(',')
 
 		valid = True
 		for i,d in enumerate(dims):
@@ -378,9 +371,10 @@ def display_help_menu(msg=''):
 	print(f' Options:')
 	actions = [
 		{'title': 'Download Data', 'desc': 'Download MNIST datasets.'},
-		{'title': 'Define Model Architectures', 'desc': 'Set architecture options.'},
+		{'title': 'Define Model Architectures', 'desc': 'Set model architecture options.'},
 		{'title': 'View Model Architectures', 'desc': 'View defined architectures.'},
 		{'title': 'Evaluate Models', 'desc': 'Evaluate defined models.'},
+		{'title': 'Test Weights', 'desc': 'Test pre-trained weights.'},
 		{'title': 'Quit', 'desc': 'Quit the program.'},
 	]
 	for i,action in enumerate(actions):
@@ -388,21 +382,21 @@ def display_help_menu(msg=''):
 
 	if not msg == '': print(f'\n\n >>> {msg}\n')
 
-def display_models(models):
+def display_models(models, pause=True):
 	if len(models) < 1:
 		return 'No models specified. Define a model with option #2.'
 	else:
 		print(f'\n Current model architectures.')
 		for i,m in enumerate(models):
 			m['dims'] = m['dims'] if type(m['dims'][0]) == int else [d.shape[0] for d in m['dims'][1:]]
-			print(f' - Model {i+1}: {m}')
-		input('\n Press enter to continue.')
+			print(f' - Model {i+1}: {m}'.replace("'","").replace('lr','learning rate').replace('pf','print frequency'))
+		if pause: input('\n Press enter to continue.')
 		return ''
 
 # ----- NEURAL NETWORK CLASSES
 class Net:
 	def __init__(self, X, Y, x, y, layers=[256,128], cycles=3, lr=0.001, print_freq=10, batch_size=64):
-		if MODEL_PRINTING: print(f'\n Initializing network... (cycles={cycles}, learning rate={lr})')
+		print(f'\n Initializing network... (cycles={cycles}, learning rate={lr})')
 		self.train_x = X
 		self.train_y = Y
 		self.test_x = x
@@ -453,7 +447,7 @@ class Net:
 			grad = layer.backward(grad, self.lr)
 
 	def train(self):
-		if MODEL_PRINTING: print(f'\n TRAINING...')
+		print(f'\n TRAINING...')
 		m, n = self.train_x.shape
 		costs, accs, times = blas.array([]), blas.array([]), blas.array([])
 
@@ -462,10 +456,20 @@ class Net:
 		batch_count = len(batches[0])
 		batch_size = batches[0][0][0].shape[0]
 
-		test_acc = 0.0
+		test_acc_tmp = 0.0
 
 		train_start = time.time()
 		for cycle in range(self.cycles):
+			if (cycle > 0) and (accs[-1] >= 100.0):
+				break
+			# if (cycle > 0) and (test_acc_tmp == 0.0) and (accs[-1] >= 100.0):
+			# 	test_acc_tmp, _ = self.test()
+			# 	print(f' INIT TEST ACC @ 100% TRN ACC: {test_acc_tmp}')
+			# if (cycle == self.cycles-1) and (not (test_acc_tmp == 0.0)):
+			# 	delta = test_acc_tmp
+			# 	test_acc_tmp, _ = self.test()
+			# 	delta = test_acc_tmp - delta
+			# 	print(f' FINAL TEST ACC @ 100% TRN ACC: {test_acc_tmp} (delta: {delta})')
 			current_batches = batches[cycle]
 			cycle_start = time.time()
 			cost, acc = 0, 0
@@ -474,7 +478,6 @@ class Net:
 			if print_cycle: sys.stdout.write(f' {f" {cycle+1}/{self.cycles} >> ":>12}')
 
 			for b,batch in enumerate(current_batches):
-				if print_cycle: progress(b, batch_count)
 				if cycle==0 and b==13:
 					cycle_start = time.time()
 					train_start = time.time()
@@ -499,17 +502,18 @@ class Net:
 		times = blas.around(times, 2)
 		accs = blas.around(accs, 5)
 		costs = blas.around(costs, 5)
+		train_acc_delta = blas.around(accs[-1] - accs[0], 2)
 		if MODEL_PRINTING:
 			print(f'\n TOTAL TRAINING DURATION:\t {train_mins}m : {train_secs}s')
 			print(f' AVG. TRAINING CYCLE DURATION:\t {avg_time}s')
-		return costs, accs, times, train_time, avg_time
+		return costs, accs, times, train_time, avg_time, train_acc_delta
 
 	def test(self):
-		if MODEL_PRINTING: print(f'\n TESTING...')
+		print(f'\n TESTING...')
 		x, y = self.test_x, self.test_y
 		output = self.forward(x)
-		acc = blas.around(100 * blas.count_nonzero(blas.argmax(output, axis=1) == blas.argmax(y, axis=1)) / x.shape[0], 2)
-		if MODEL_PRINTING: print(f'   TEST ACCURACY: {acc}%')
+		acc = blas.around(100 * blas.count_nonzero(blas.argmax(output, axis=1) == blas.argmax(y, axis=1)) / x.shape[0], 5)
+		print(f'   TEST ACCURACY: {acc}%')
 		return acc, output
 
 class Layer:
@@ -595,13 +599,14 @@ if __name__ == "__main__":
 		choice = input(f'\n What would you like to do? (Type 1-5 and press enter.)\n ')
 		try:
 			choice = int(choice)
-			if choice in [1,2,3,4]:
+			if choice in [1,2,3,4,5]:
 				clear_screen()
 				if choice == 1: datasets, usr_msg = download_data(datasets)
 				if choice == 2: models, usr_msg = define_model_architectures(models)
 				if choice == 3: usr_msg = display_models(models)
 				if choice == 4: usr_msg = evaluate_models(datasets, models)
-			elif choice == 5:
+				if choice == 5: usr_msg = test_models(datasets)
+			elif choice == 6:
 				print('\n Quitting...')
 				running = False
 			else:
